@@ -1,9 +1,42 @@
 # Task Manager Backend
 
+## Demo API
+
+![Demo](./assets/demo.gif)
+
 Backend API for managing projects and tasks.  
 Created as part of a team project.
 
 ---
+## Architecture
+
+The application follows a simple 3-layer architecture:
+
+- **Client layer** (e.g., Swagger UI / Postman)  
+  interacts with the API via HTTP requests
+
+- **Backend layer** (Node.js + Express)  
+  handles routing, business logic and data processing
+
+- **Database layer** (PostgreSQL)  
+  stores users, projects and tasks with relational structure
+
+## API Documentation
+
+Swagger UI available at:
+
+http://localhost:3000/api/docs
+
+### Data relationships:
+- One user can have many tasks
+- One project can contain many tasks
+- Each task belongs to one user and one project
+
+The API follows REST principles and communicates using JSON.
+
+## Database Diagram (ERD)
+
+![ERD](./assets/erd.png)
 
 ## Technologies
 
@@ -85,3 +118,12 @@ Database dump is included in database/init.sql
 
 ## Author
 Krystian Marciniak
+
+{
+  "title": "Test Swagger",
+  "description": "Sprawdzenie endpointu POST",
+  "status": "todo",
+  "due_date": "2026-04-20",
+  "assigned_user_id": 1,
+  "project_id": 1
+}
