@@ -1,3 +1,8 @@
+![Node.js](https://img.shields.io/badge/Node.js-18+-green)
+![Express](https://img.shields.io/badge/Express.js-Backend-black)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Database-blue)
+![API](https://img.shields.io/badge/API-REST-orange)
+![Status](https://img.shields.io/badge/Status-Completed-brightgreen)
 # Task Manager Backend
 
 ## Demo API
