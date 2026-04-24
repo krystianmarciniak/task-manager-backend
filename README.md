@@ -124,11 +124,3 @@ Database dump is included in database/init.sql
 ## Author
 Krystian Marciniak
 
-{
-  "title": "Test Swagger",
-  "description": "Sprawdzenie endpointu POST",
-  "status": "todo",
-  "due_date": "2026-04-20",
-  "assigned_user_id": 1,
-  "project_id": 1
-}
