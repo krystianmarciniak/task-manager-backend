@@ -158,35 +158,32 @@ ALTER TABLE ONLY public.users ALTER COLUMN id SET DEFAULT nextval('public.users_
 -- Data for Name: projects; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
-COPY public.projects (id, name, description, created_at) FROM stdin;
-1	Task Manager JS	Główny projekt aplikacji do zarządzania zadaniami	2026-04-14 23:22:27.950874
-2	Frontend Kanban	Widok tablicy Kanban i interfejs użytkownika	2026-04-14 23:22:27.950874
-3	Backend API	Obsługa danych, endpointy i połączenie z bazą	2026-04-14 23:22:27.950874
-\.
+INSERT INTO public.projects (id, name, description, created_at) VALUES
+(1, 'Task Manager JS', 'Główny projekt aplikacji do zarządzania zadaniami', '2026-04-14 23:22:27.950874'),
+(2, 'Frontend Kanban', 'Widok tablicy Kanban i interfejs użytkownika', '2026-04-14 23:22:27.950874'),
+(3, 'Backend API', 'Obsługa danych, endpointy i połączenie z bazą', '2026-04-14 23:22:27.950874');
 
 
 --
 -- Data for Name: tasks; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
-COPY public.tasks (id, title, description, status, due_date, created_at, assigned_user_id, project_id) FROM stdin;
-1	Pierwsze zadanie	Opis pierwszego zadania	todo	2026-04-20	2026-04-14 19:17:32.50588	1	1
-2	Drugie zadanie	Opis drugiego zadania	in_progress	2026-04-22	2026-04-14 19:17:32.50588	2	2
-3	Trzecie zadanie	Opis trzeciego zadania	done	2026-04-25	2026-04-14 19:17:32.50588	3	3
-4	Nowe zadanie z API - edycja	To zadanie zostało zmienione przez endpoint PUT	in_progress	2026-05-05	2026-04-14 20:02:59.315361	1	1
-6	Nowe zadanie relacyjne - edycja	Po zmianie użytkownika i projektu	in_progress	2026-05-20	2026-04-15 04:20:29.953132	3	2
-\.
+INSERT INTO public.tasks (id, title, description, status, due_date, created_at, assigned_user_id, project_id) VALUES
+(1, 'Pierwsze zadanie', 'Opis pierwszego zadania', 'todo', '2026-04-20', '2026-04-14 19:17:32.50588', 1, 1),
+(2, 'Drugie zadanie', 'Opis drugiego zadania', 'in_progress', '2026-04-22', '2026-04-14 19:17:32.50588', 2, 2),
+(3, 'Trzecie zadanie', 'Opis trzeciego zadania', 'done', '2026-04-25', '2026-04-14 19:17:32.50588', 3, 3),
+(4, 'Nowe zadanie z API - edycja', 'To zadanie zostało zmienione przez endpoint PUT', 'in_progress', '2026-05-05', '2026-04-14 20:02:59.315361', 1, 1),
+(6, 'Nowe zadanie relacyjne - edycja', 'Po zmianie użytkownika i projektu', 'in_progress', '2026-05-20', '2026-04-15 04:20:29.953132', 3, 2);
 
 
 --
 -- Data for Name: users; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
-COPY public.users (id, name, email, created_at) FROM stdin;
-1	Krystian Marciniak	krystian@example.com	2026-04-14 22:49:29.149821
-2	Dawid Kostka	dawid@example.com	2026-04-14 22:49:29.149821
-3	Marcin Kaminski	marcin@example.com	2026-04-14 22:49:29.149821
-\.
+INSERT INTO public.users (id, name, email, created_at) VALUES
+(1, 'Krystian Marciniak', 'krystian@example.com', '2026-04-14 22:49:29.149821'),
+(2, 'Dawid Kostka', 'dawid@example.com', '2026-04-14 22:49:29.149821'),
+(3, 'Marcin Kaminski', 'marcin@example.com', '2026-04-14 22:49:29.149821');
 
 
 --

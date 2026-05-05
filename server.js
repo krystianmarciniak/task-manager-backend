@@ -74,6 +74,36 @@ app.get("/users", async (req, res) => {
   }
 });
 
+app.post("/users", async (req, res) => {
+  try {
+    const { name, email } = req.body;
+
+    if (!name || !String(name).trim()) {
+      return res.status(400).json({ error: "Pole name jest wymagane" });
+    }
+    if (!email || !String(email).trim()) {
+      return res.status(400).json({ error: "Pole email jest wymagane" });
+    }
+
+    const result = await pool.query(
+      `INSERT INTO users (name, email)
+       VALUES ($1, $2)
+       RETURNING *`,
+      [String(name).trim(), String(email).trim().toLowerCase()]
+    );
+
+    res.status(201).json(result.rows[0]);
+  } catch (error) {
+    if (error.code === "23505") {
+      return res
+        .status(409)
+        .json({ error: "Użytkownik o tym adresie e-mail już istnieje" });
+    }
+    console.error("Błąd podczas dodawania użytkownika:", error.message);
+    res.status(500).json({ error: "Błąd serwera" });
+  }
+});
+
 app.get("/users/:id", async (req, res) => {
   try {
     const { id } = req.params;
@@ -90,6 +120,67 @@ app.get("/users/:id", async (req, res) => {
     res.json(result.rows[0]);
   } catch (error) {
     console.error("Błąd podczas pobierania użytkownika:", error.message);
+    res.status(500).json({ error: "Błąd serwera" });
+  }
+});
+
+app.put("/users/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, email } = req.body;
+
+    if (!name || !String(name).trim()) {
+      return res.status(400).json({ error: "Pole name jest wymagane" });
+    }
+    if (!email || !String(email).trim()) {
+      return res.status(400).json({ error: "Pole email jest wymagane" });
+    }
+
+    const result = await pool.query(
+      `UPDATE users
+       SET name = $1, email = $2
+       WHERE id = $3
+       RETURNING *`,
+      [String(name).trim(), String(email).trim().toLowerCase(), id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Nie znaleziono użytkownika" });
+    }
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    if (error.code === "23505") {
+      return res
+        .status(409)
+        .json({ error: "Użytkownik o tym adresie e-mail już istnieje" });
+    }
+    console.error("Błąd podczas edycji użytkownika:", error.message);
+    res.status(500).json({ error: "Błąd serwera" });
+  }
+});
+
+app.delete("/users/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const result = await pool.query(
+      `DELETE FROM users
+       WHERE id = $1
+       RETURNING *`,
+      [id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Nie znaleziono użytkownika" });
+    }
+
+    res.json({
+      message: "Użytkownik został usunięty",
+      deletedUser: result.rows[0],
+    });
+  } catch (error) {
+    console.error("Błąd podczas usuwania użytkownika:", error.message);
     res.status(500).json({ error: "Błąd serwera" });
   }
 });
@@ -139,6 +230,28 @@ app.get("/projects", async (req, res) => {
     res.json(result.rows);
   } catch (error) {
     console.error("Błąd podczas pobierania projektów:", error.message);
+    res.status(500).json({ error: "Błąd serwera" });
+  }
+});
+
+app.post("/projects", async (req, res) => {
+  try {
+    const { name, description } = req.body;
+
+    if (!name || !String(name).trim()) {
+      return res.status(400).json({ error: "Pole name jest wymagane" });
+    }
+
+    const result = await pool.query(
+      `INSERT INTO projects (name, description)
+       VALUES ($1, $2)
+       RETURNING *`,
+      [String(name).trim(), description || null]
+    );
+
+    res.status(201).json(result.rows[0]);
+  } catch (error) {
+    console.error("Błąd podczas dodawania projektu:", error.message);
     res.status(500).json({ error: "Błąd serwera" });
   }
 });
