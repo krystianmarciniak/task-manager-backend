@@ -239,20 +239,23 @@ app.post("/projects", async (req, res) => {
     const { name, description } = req.body;
 
     if (!name || !String(name).trim()) {
-      return res.status(400).json({ error: "Pole name jest wymagane" });
+      return res.status(400).json({ error: "Nazwa listy jest wymagana." });
     }
 
     const result = await pool.query(
       `INSERT INTO projects (name, description)
        VALUES ($1, $2)
        RETURNING *`,
-      [String(name).trim(), description || null]
+      [
+        String(name).trim(),
+        description || "Lista zadań utworzona z poziomu aplikacji"
+      ]
     );
 
     res.status(201).json(result.rows[0]);
   } catch (error) {
     console.error("Błąd podczas dodawania projektu:", error.message);
-    res.status(500).json({ error: "Błąd serwera" });
+    res.status(500).json({ error: "Nie udało się utworzyć listy." });
   }
 });
 
@@ -275,6 +278,7 @@ app.get("/projects/:id", async (req, res) => {
     res.status(500).json({ error: "Błąd serwera" });
   }
 });
+
 
 app.get("/projects/:id/tasks", async (req, res) => {
   try {
@@ -374,6 +378,8 @@ app.put("/tasks/:id", async (req, res) => {
       return res.status(400).json({ error: "Pole title jest wymagane" });
     }
 
+
+
     const result = await pool.query(
       `UPDATE tasks
        SET title = $1,
@@ -428,6 +434,26 @@ app.delete("/tasks/:id", async (req, res) => {
   } catch (error) {
     console.error("Błąd podczas usuwania zadania:", error.message);
     res.status(500).json({ error: "Błąd serwera" });
+  }
+});
+
+app.delete('/projects/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const result = await pool.query(
+      'DELETE FROM projects WHERE id = $1 RETURNING *',
+      [id]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: 'Nie znaleziono listy.' });
+    }
+
+    res.json({ message: 'Lista została usunięta.', deleted: result.rows[0] });
+  } catch (error) {
+    console.error('Błąd podczas usuwania projektu:', error);
+    res.status(500).json({ error: 'Nie udało się usunąć listy.' });
   }
 });
 
