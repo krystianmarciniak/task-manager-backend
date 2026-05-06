@@ -378,8 +378,6 @@ app.put("/tasks/:id", async (req, res) => {
       return res.status(400).json({ error: "Pole title jest wymagane" });
     }
 
-
-
     const result = await pool.query(
       `UPDATE tasks
        SET title = $1,
@@ -438,13 +436,19 @@ app.delete("/tasks/:id", async (req, res) => {
 });
 
 app.delete('/projects/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
+	try {
+		const { id } = req.params;
 
-    const result = await pool.query(
-      'DELETE FROM projects WHERE id = $1 RETURNING *',
-      [id]
-    );
+		if (Number(id) <= 3) {
+			return res.status(403).json({
+				error: 'Nie można usunąć bazowej listy projektu.'
+			});
+		}
+
+		const result = await pool.query(
+			'DELETE FROM projects WHERE id = $1 RETURNING *',
+			[id]
+		);
 
     if (result.rowCount === 0) {
       return res.status(404).json({ error: 'Nie znaleziono listy.' });
@@ -455,6 +459,39 @@ app.delete('/projects/:id', async (req, res) => {
     console.error('Błąd podczas usuwania projektu:', error);
     res.status(500).json({ error: 'Nie udało się usunąć listy.' });
   }
+});
+
+app.get('/projects/:id/tasks', async (req, res) => {
+	try {
+		const { id } = req.params;
+
+		const result = await pool.query(
+			`
+			SELECT
+				tasks.id,
+				tasks.title,
+				tasks.description,
+				tasks.status,
+				tasks.due_date,
+				tasks.created_at,
+				tasks.assigned_user_id,
+				tasks.project_id,
+				users.name AS assigned_user_name,
+				projects.name AS project_name
+			FROM tasks
+			LEFT JOIN users ON tasks.assigned_user_id = users.id
+			LEFT JOIN projects ON tasks.project_id = projects.id
+			WHERE tasks.project_id = $1
+			ORDER BY tasks.created_at DESC
+			`,
+			[id]
+		);
+
+		res.json(result.rows);
+	} catch (error) {
+		console.error('Błąd podczas pobierania zadań projektu:', error);
+		res.status(500).json({ error: 'Nie udało się pobrać zadań projektu.' });
+	}
 });
 
 const PORT = process.env.PORT || 3000;
