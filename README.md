@@ -116,6 +116,39 @@ Example endpoints:
 - GET /users
 - GET /users/:id
 
+## Validation & Security
+
+The backend includes server-side validation to improve API reliability and data consistency.
+
+Implemented validations:
+
+- Required task title validation
+- Maximum task title length (100 characters)
+- Allowed task statuses only:
+  - todo
+  - in_progress
+  - done
+- E-mail format validation
+- Date format validation
+- Validation of existing relations:
+  - assigned_user_id
+  - project_id
+
+Example error response:
+
+```json
+{
+  "error": "Nieprawidłowy format daty."
+}
+```
+
+The API returns proper HTTP status codes:
+- 200 OK
+- 201 Created
+- 400 Bad Request
+- 404 Not Found
+- 500 Internal Server Error
+
 ## Notes
 .env file is not included in repository for security reasons
 node_modules is ignored (run npm install after cloning)
