@@ -32,6 +32,65 @@ Swagger UI available at:
 
 http://localhost:3000/api/docs
 
+## Swagger API Documentation
+
+Interactive API documentation is available after starting the server:
+
+```text
+http://localhost:3000/api/docs
+```
+
+Swagger UI allows testing all endpoints directly in the browser.
+
+Documented endpoints include:
+
+- Tasks
+  - GET /tasks
+  - POST /tasks
+  - GET /tasks/{id}
+  - PUT /tasks/{id}
+  - DELETE /tasks/{id}
+
+- Users
+  - GET /users
+  - POST /users
+  - GET /users/{id}
+  - PUT /users/{id}
+  - DELETE /users/{id}
+  - GET /users/{id}/tasks
+
+- Projects
+  - GET /projects
+  - POST /projects
+  - GET /projects/{id}
+  - DELETE /projects/{id}
+  - GET /projects/{id}/tasks
+
+---
+
+## API Validation
+
+The backend includes validation mechanisms for secure and correct API usage.
+
+Implemented validations:
+
+- required fields validation
+- maximum title length validation
+- email format validation
+- date format validation
+- task status validation
+- relational validation for:
+  - assigned_user_id
+  - project_id
+
+The API returns proper HTTP status codes:
+
+- 200 OK
+- 201 Created
+- 400 Bad Request
+- 404 Not Found
+- 500 Internal Server Error
+
 ### Data relationships:
 - One user can have many tasks
 - One project can contain many tasks
