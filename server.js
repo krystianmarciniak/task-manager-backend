@@ -694,6 +694,15 @@ app.delete("/projects/:id", async (req, res) => {
   }
 });
 
+app.get("/api/tasks", async (req, res) => {
+  try {
+    const result = await pool.query("SELECT * FROM tasks ORDER BY id ASC");
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: "Błąd serwera" });
+  }
+});
+
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
