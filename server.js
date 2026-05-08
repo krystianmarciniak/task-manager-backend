@@ -29,11 +29,22 @@ app.get("/tasks", async (req, res) => {
         tasks.created_at,
         tasks.assigned_user_id,
         tasks.project_id,
+        tasks.estimated_hours,
+        tasks.logged_hours,
         users.name AS assigned_user_name,
-        projects.name AS project_name
+        projects.name AS project_name,
+        COALESCE(
+          JSON_AGG(
+            JSON_BUILD_OBJECT('id', l.id, 'name', l.name, 'color', l.color, 'icon', l.icon)
+          ) FILTER (WHERE l.id IS NOT NULL),
+          '[]'
+        ) AS labels
       FROM tasks
       LEFT JOIN users ON tasks.assigned_user_id = users.id
       LEFT JOIN projects ON tasks.project_id = projects.id
+      LEFT JOIN task_labels tl ON tasks.id = tl.task_id
+      LEFT JOIN labels l ON tl.label_id = l.id
+      GROUP BY tasks.id, users.name, projects.name
       ORDER BY tasks.id ASC
     `);
 
@@ -208,12 +219,23 @@ app.get("/users/:id/tasks", async (req, res) => {
         tasks.created_at,
         tasks.assigned_user_id,
         tasks.project_id,
+        tasks.estimated_hours,
+        tasks.logged_hours,
         users.name AS assigned_user_name,
-        projects.name AS project_name
+        projects.name AS project_name,
+        COALESCE(
+          JSON_AGG(
+            JSON_BUILD_OBJECT('id', l.id, 'name', l.name, 'color', l.color, 'icon', l.icon)
+          ) FILTER (WHERE l.id IS NOT NULL),
+          '[]'
+        ) AS labels
       FROM tasks
       LEFT JOIN users ON tasks.assigned_user_id = users.id
       LEFT JOIN projects ON tasks.project_id = projects.id
+      LEFT JOIN task_labels tl ON tasks.id = tl.task_id
+      LEFT JOIN labels l ON tl.label_id = l.id
       WHERE tasks.assigned_user_id = $1
+      GROUP BY tasks.id, users.name, projects.name
       ORDER BY tasks.id ASC
     `, [id]);
 
@@ -303,12 +325,23 @@ app.get("/projects/:id/tasks", async (req, res) => {
         tasks.created_at,
         tasks.assigned_user_id,
         tasks.project_id,
+        tasks.estimated_hours,
+        tasks.logged_hours,
         users.name AS assigned_user_name,
-        projects.name AS project_name
+        projects.name AS project_name,
+        COALESCE(
+          JSON_AGG(
+            JSON_BUILD_OBJECT('id', l.id, 'name', l.name, 'color', l.color, 'icon', l.icon)
+          ) FILTER (WHERE l.id IS NOT NULL),
+          '[]'
+        ) AS labels
       FROM tasks
       LEFT JOIN users ON tasks.assigned_user_id = users.id
       LEFT JOIN projects ON tasks.project_id = projects.id
+      LEFT JOIN task_labels tl ON tasks.id = tl.task_id
+      LEFT JOIN labels l ON tl.label_id = l.id
       WHERE tasks.project_id = $1
+      GROUP BY tasks.id, users.name, projects.name
       ORDER BY tasks.id ASC
     `, [id]);
 
@@ -327,7 +360,8 @@ app.post("/tasks", async (req, res) => {
       status,
       due_date,
       assigned_user_id,
-      project_id
+      project_id,
+      estimated_hours
     } = req.body;
 
     if (!title) {
@@ -341,9 +375,10 @@ app.post("/tasks", async (req, res) => {
         status,
         due_date,
         assigned_user_id,
-        project_id
+        project_id,
+        estimated_hours
       )
-      VALUES ($1, $2, $3, $4, $5, $6)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
       RETURNING *`,
       [
         title,
@@ -351,7 +386,8 @@ app.post("/tasks", async (req, res) => {
         status || "todo",
         due_date || null,
         assigned_user_id || null,
-        project_id || null
+        project_id || null,
+        estimated_hours || 0
       ]
     );
 
@@ -371,7 +407,9 @@ app.put("/tasks/:id", async (req, res) => {
       status,
       due_date,
       assigned_user_id,
-      project_id
+      project_id,
+      estimated_hours,
+      logged_hours
     } = req.body;
 
     if (!title) {
@@ -387,7 +425,9 @@ app.put("/tasks/:id", async (req, res) => {
            status = $3,
            due_date = $4,
            assigned_user_id = $5,
-           project_id = $6
+           project_id = $6,
+           estimated_hours = COALESCE($8, estimated_hours),
+           logged_hours = COALESCE($9, logged_hours)
        WHERE id = $7
        RETURNING *`,
       [
@@ -397,7 +437,9 @@ app.put("/tasks/:id", async (req, res) => {
         due_date || null,
         assigned_user_id || null,
         project_id || null,
-        id
+        id,
+        estimated_hours !== undefined ? estimated_hours : null,
+        logged_hours !== undefined ? logged_hours : null
       ]
     );
 
@@ -454,6 +496,173 @@ app.delete('/projects/:id', async (req, res) => {
   } catch (error) {
     console.error('Błąd podczas usuwania projektu:', error);
     res.status(500).json({ error: 'Nie udało się usunąć listy.' });
+  }
+});
+
+app.get("/tasks/:id/time-logs", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await pool.query(
+      "SELECT * FROM task_time_logs WHERE task_id = $1 ORDER BY created_at DESC",
+      [id]
+    );
+    res.json(result.rows);
+  } catch (error) {
+    console.error("Błąd podczas pobierania logów czasu:", error.message);
+    res.status(500).json({ error: "Błąd serwera" });
+  }
+});
+
+app.post("/tasks/:id/time-logs", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { hours, comment } = req.body;
+    
+    if (!hours || isNaN(hours)) {
+      return res.status(400).json({ error: "Pole hours jest wymagane i musi być liczbą" });
+    }
+
+    const result = await pool.query(
+      `INSERT INTO task_time_logs (task_id, hours, comment)
+       VALUES ($1, $2, $3)
+       RETURNING *`,
+      [id, hours, comment || ""]
+    );
+    
+    await pool.query(
+      `UPDATE tasks SET logged_hours = COALESCE(logged_hours, 0) + $1 WHERE id = $2`,
+      [hours, id]
+    );
+
+    res.status(201).json(result.rows[0]);
+  } catch (error) {
+    console.error("Błąd podczas dodawania logu czasu:", error.message);
+    res.status(500).json({ error: "Błąd serwera" });
+  }
+});
+
+app.delete("/time-logs/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const logCheck = await pool.query("SELECT * FROM task_time_logs WHERE id = $1", [id]);
+    if (logCheck.rows.length === 0) {
+      return res.status(404).json({ error: "Nie znaleziono wpisu" });
+    }
+    
+    const log = logCheck.rows[0];
+    
+    const result = await pool.query(
+      `DELETE FROM task_time_logs
+       WHERE id = $1
+       RETURNING *`,
+      [id]
+    );
+
+    await pool.query(
+      `UPDATE tasks SET logged_hours = COALESCE(logged_hours, 0) - $1 WHERE id = $2`,
+      [log.hours, log.task_id]
+    );
+
+    res.json({
+      message: "Wpis został usunięty",
+      deletedLog: result.rows[0]
+    });
+  } catch (error) {
+    console.error("Błąd podczas usuwania logu czasu:", error.message);
+    res.status(500).json({ error: "Błąd serwera" });
+  }
+});
+
+
+app.get('/labels', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM labels ORDER BY id ASC');
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Błąd pobierania etykiet:', error.message);
+    res.status(500).json({ error: 'Błąd serwera' });
+  }
+});
+
+app.post('/labels', async (req, res) => {
+  try {
+    const { name, color, icon } = req.body;
+    if (!name || !String(name).trim()) {
+      return res.status(400).json({ error: 'Nazwa etykiety jest wymagana' });
+    }
+    const result = await pool.query(
+      'INSERT INTO labels (name, color, icon) VALUES ($1, $2, $3) RETURNING *',
+      [String(name).trim(), color || 'blue', icon || 'tag']
+    );
+    res.status(201).json(result.rows[0]);
+  } catch (error) {
+    console.error('Błąd dodawania etykiety:', error.message);
+    res.status(500).json({ error: 'Błąd serwera' });
+  }
+});
+
+app.put('/labels/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, color, icon } = req.body;
+    if (!name || !String(name).trim()) {
+      return res.status(400).json({ error: 'Nazwa etykiety jest wymagana' });
+    }
+    const result = await pool.query(
+      'UPDATE labels SET name = $1, color = $2, icon = $3 WHERE id = $4 RETURNING *',
+      [String(name).trim(), color || 'blue', icon || 'tag', id]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Nie znaleziono etykiety' });
+    }
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Błąd edycji etykiety:', error.message);
+    res.status(500).json({ error: 'Błąd serwera' });
+  }
+});
+
+app.delete('/labels/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await pool.query('DELETE FROM labels WHERE id = $1 RETURNING *', [id]);
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Nie znaleziono etykiety' });
+    }
+    res.json({ message: 'Etykieta została usunięta', deleted: result.rows[0] });
+  } catch (error) {
+    console.error('Błąd usuwania etykiety:', error.message);
+    res.status(500).json({ error: 'Błąd serwera' });
+  }
+});
+
+app.post('/tasks/:id/labels', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { label_id } = req.body;
+    await pool.query(
+      'INSERT INTO task_labels (task_id, label_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+      [id, label_id]
+    );
+    res.status(201).json({ task_id: id, label_id });
+  } catch (error) {
+    console.error('Błąd przypisania etykiety:', error.message);
+    res.status(500).json({ error: 'Błąd serwera' });
+  }
+});
+
+app.delete('/tasks/:id/labels/:labelId', async (req, res) => {
+  try {
+    const { id, labelId } = req.params;
+    await pool.query(
+      'DELETE FROM task_labels WHERE task_id = $1 AND label_id = $2',
+      [id, labelId]
+    );
+    res.json({ message: 'Etykieta odpięta' });
+  } catch (error) {
+    console.error('Błąd odpinania etykiety:', error.message);
+    res.status(500).json({ error: 'Błąd serwera' });
   }
 });
 

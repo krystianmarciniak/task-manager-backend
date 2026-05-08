@@ -56,6 +56,84 @@ const options = {
               type: "string",
               example: "Projekt zaliczeniowy",
             },
+            estimated_hours: {
+              type: "number",
+              example: 8,
+              nullable: true,
+            },
+            logged_hours: {
+              type: "number",
+              example: 3.5,
+              nullable: true,
+            },
+            labels: {
+              type: "array",
+              items: { $ref: "#/components/schemas/LabelRef" },
+              description: "Etykiety przypisane do zadania",
+            },
+          },
+        },
+        LabelRef: {
+          type: "object",
+          description: "Uproszczony obiekt etykiety zwracany w zadaniach",
+          properties: {
+            id: { type: "integer", example: 1 },
+            name: { type: "string", example: "Bug" },
+            color: { type: "string", example: "red" },
+            icon: { type: "string", example: "bug" },
+          },
+        },
+        Label: {
+          type: "object",
+          properties: {
+            id: { type: "integer", example: 1 },
+            name: { type: "string", example: "Bug" },
+            color: { type: "string", example: "red" },
+            icon: { type: "string", example: "bug" },
+            created_at: {
+              type: "string",
+              format: "date-time",
+              example: "2026-05-07T18:00:00.000Z",
+            },
+          },
+        },
+        LabelInput: {
+          type: "object",
+          required: ["name"],
+          properties: {
+            name: { type: "string", example: "Bug" },
+            color: {
+              type: "string",
+              example: "red",
+              description: "Jedna z predefiniowanych wartości: slate, red, orange, amber, green, teal, cyan, blue, indigo, violet, pink, rose",
+            },
+            icon: {
+              type: "string",
+              example: "bug",
+              description: "Nazwa ikony z Lucide (np. bug, star, flame)",
+            },
+          },
+        },
+        TimeLog: {
+          type: "object",
+          properties: {
+            id: { type: "integer", example: 1 },
+            task_id: { type: "integer", example: 5 },
+            hours: { type: "number", example: 2.5 },
+            comment: { type: "string", example: "Implementacja endpointu", nullable: true },
+            created_at: {
+              type: "string",
+              format: "date-time",
+              example: "2026-05-07T20:00:00.000Z",
+            },
+          },
+        },
+        TimeLogInput: {
+          type: "object",
+          required: ["hours"],
+          properties: {
+            hours: { type: "number", example: 1.5 },
+            comment: { type: "string", example: "Poprawki po code review", nullable: true },
           },
         },
         User: {
@@ -156,6 +234,8 @@ const options = {
       { name: "Tasks", description: "Operacje na zadaniach" },
       { name: "Users", description: "Operacje na użytkownikach" },
       { name: "Projects", description: "Operacje na projektach" },
+      { name: "Labels", description: "Zarządzanie globalnymi etykietami" },
+      { name: "TimeLogs", description: "Logi czasu pracy dla zadań" },
     ],
     paths: {
       "/": {
@@ -534,6 +614,190 @@ const options = {
             500: {
               description: "Błąd serwera",
             },
+          },
+        },
+      },
+      "/labels": {
+        get: {
+          tags: ["Labels"],
+          summary: "Pobiera listę wszystkich etykiet",
+          responses: {
+            200: {
+              description: "Lista etykiet",
+              content: {
+                "application/json": {
+                  schema: { type: "array", items: { $ref: "#/components/schemas/Label" } },
+                },
+              },
+            },
+            500: { description: "Błąd serwera" },
+          },
+        },
+        post: {
+          tags: ["Labels"],
+          summary: "Tworzy nową etykietę",
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/LabelInput" },
+              },
+            },
+          },
+          responses: {
+            201: {
+              description: "Etykieta została utworzona",
+              content: {
+                "application/json": {
+                  schema: { $ref: "#/components/schemas/Label" },
+                },
+              },
+            },
+            400: { description: "Brak wymaganej nazwy" },
+            500: { description: "Błąd serwera" },
+          },
+        },
+      },
+      "/labels/{id}": {
+        put: {
+          tags: ["Labels"],
+          summary: "Aktualizuje etykietę",
+          parameters: [
+            { name: "id", in: "path", required: true, schema: { type: "integer" }, description: "ID etykiety" },
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/LabelInput" },
+              },
+            },
+          },
+          responses: {
+            200: {
+              description: "Etykieta zaktualizowana",
+              content: {
+                "application/json": {
+                  schema: { $ref: "#/components/schemas/Label" },
+                },
+              },
+            },
+            404: { description: "Nie znaleziono etykiety" },
+            500: { description: "Błąd serwera" },
+          },
+        },
+        delete: {
+          tags: ["Labels"],
+          summary: "Usuwa etykietę (kaskadowo odpina od zadań)",
+          parameters: [
+            { name: "id", in: "path", required: true, schema: { type: "integer" }, description: "ID etykiety" },
+          ],
+          responses: {
+            200: { description: "Etykieta usunięta" },
+            404: { description: "Nie znaleziono etykiety" },
+            500: { description: "Błąd serwera" },
+          },
+        },
+      },
+      "/tasks/{id}/labels": {
+        post: {
+          tags: ["Labels"],
+          summary: "Przypisuje etykietę do zadania",
+          parameters: [
+            { name: "id", in: "path", required: true, schema: { type: "integer" }, description: "ID zadania" },
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["label_id"],
+                  properties: {
+                    label_id: { type: "integer", example: 1 },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            201: { description: "Etykieta przypisana" },
+            500: { description: "Błąd serwera" },
+          },
+        },
+      },
+      "/tasks/{id}/labels/{labelId}": {
+        delete: {
+          tags: ["Labels"],
+          summary: "Odpina etykietę od zadania",
+          parameters: [
+            { name: "id", in: "path", required: true, schema: { type: "integer" }, description: "ID zadania" },
+            { name: "labelId", in: "path", required: true, schema: { type: "integer" }, description: "ID etykiety" },
+          ],
+          responses: {
+            200: { description: "Etykieta odpięta" },
+            500: { description: "Błąd serwera" },
+          },
+        },
+      },
+      "/tasks/{id}/time-logs": {
+        get: {
+          tags: ["TimeLogs"],
+          summary: "Pobiera historię logów czasu dla zadania",
+          parameters: [
+            { name: "id", in: "path", required: true, schema: { type: "integer" }, description: "ID zadania" },
+          ],
+          responses: {
+            200: {
+              description: "Lista logów czasu",
+              content: {
+                "application/json": {
+                  schema: { type: "array", items: { $ref: "#/components/schemas/TimeLog" } },
+                },
+              },
+            },
+            500: { description: "Błąd serwera" },
+          },
+        },
+        post: {
+          tags: ["TimeLogs"],
+          summary: "Dodaje wpis czasu pracy do zadania",
+          parameters: [
+            { name: "id", in: "path", required: true, schema: { type: "integer" }, description: "ID zadania" },
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/TimeLogInput" },
+              },
+            },
+          },
+          responses: {
+            201: {
+              description: "Log czasu dodany",
+              content: {
+                "application/json": {
+                  schema: { $ref: "#/components/schemas/TimeLog" },
+                },
+              },
+            },
+            400: { description: "Liczba godzin jest wymagana" },
+            500: { description: "Błąd serwera" },
+          },
+        },
+      },
+      "/time-logs/{id}": {
+        delete: {
+          tags: ["TimeLogs"],
+          summary: "Usuwa wpis czasu pracy (aktualizuje sumę logged_hours w zadaniu)",
+          parameters: [
+            { name: "id", in: "path", required: true, schema: { type: "integer" }, description: "ID logu czasu" },
+          ],
+          responses: {
+            200: { description: "Log czasu usunięty" },
+            404: { description: "Nie znaleziono logu" },
+            500: { description: "Błąd serwera" },
           },
         },
       },
