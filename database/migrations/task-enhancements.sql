@@ -1,0 +1,36 @@
+-- Migration: task enhancements
+-- Adds labels, task-label relations and time tracking fields.
+
+CREATE TABLE IF NOT EXISTS labels (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(80) NOT NULL UNIQUE,
+    color VARCHAR(30) DEFAULT '#64748b',
+    icon VARCHAR(50) DEFAULT 'tag',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS task_labels (
+    task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+    label_id INTEGER NOT NULL REFERENCES labels(id) ON DELETE CASCADE,
+    PRIMARY KEY (task_id, label_id)
+);
+
+CREATE TABLE IF NOT EXISTS time_logs (
+    id SERIAL PRIMARY KEY,
+    task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+    hours NUMERIC(6,2) NOT NULL,
+    comment TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+ALTER TABLE labels
+ADD COLUMN IF NOT EXISTS color VARCHAR(30) DEFAULT '#64748b';
+
+ALTER TABLE labels
+ADD COLUMN IF NOT EXISTS icon VARCHAR(50) DEFAULT 'tag';
+
+ALTER TABLE tasks
+ADD COLUMN IF NOT EXISTS estimated_hours NUMERIC(6,2) DEFAULT 0;
+
+ALTER TABLE tasks
+ADD COLUMN IF NOT EXISTS logged_hours NUMERIC(6,2) DEFAULT 0;
