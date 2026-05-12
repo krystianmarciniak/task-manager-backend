@@ -59,10 +59,7 @@ app.get("/tasks/:id", async (req, res) => {
   try {
     const { id } = req.params;
 
-    const result = await pool.query(
-      "SELECT * FROM tasks WHERE id = $1",
-      [id]
-    );
+    const result = await pool.query("SELECT * FROM tasks WHERE id = $1", [id]);
 
     if (result.rows.length === 0) {
       return res.status(404).json({ error: "Nie znaleziono zadania" });
@@ -119,10 +116,7 @@ app.get("/users/:id", async (req, res) => {
   try {
     const { id } = req.params;
 
-    const result = await pool.query(
-      "SELECT * FROM users WHERE id = $1",
-      [id]
-    );
+    const result = await pool.query("SELECT * FROM users WHERE id = $1", [id]);
 
     if (result.rows.length === 0) {
       return res.status(404).json({ error: "Nie znaleziono użytkownika" });
@@ -200,16 +194,16 @@ app.get("/users/:id/tasks", async (req, res) => {
   try {
     const { id } = req.params;
 
-    const userCheck = await pool.query(
-      "SELECT * FROM users WHERE id = $1",
-      [id]
-    );
+    const userCheck = await pool.query("SELECT * FROM users WHERE id = $1", [
+      id,
+    ]);
 
     if (userCheck.rows.length === 0) {
       return res.status(404).json({ error: "Nie znaleziono użytkownika" });
     }
 
-    const result = await pool.query(`
+    const result = await pool.query(
+      `
       SELECT
         tasks.id,
         tasks.title,
@@ -237,7 +231,9 @@ app.get("/users/:id/tasks", async (req, res) => {
       WHERE tasks.assigned_user_id = $1
       GROUP BY tasks.id, users.name, projects.name
       ORDER BY tasks.id ASC
-    `, [id]);
+    `,
+      [id]
+    );
 
     res.json(result.rows);
   } catch (error) {
@@ -270,7 +266,7 @@ app.post("/projects", async (req, res) => {
        RETURNING *`,
       [
         String(name).trim(),
-        description || "Lista zadań utworzona z poziomu aplikacji"
+        description || "Lista zadań utworzona z poziomu aplikacji",
       ]
     );
 
@@ -285,10 +281,9 @@ app.get("/projects/:id", async (req, res) => {
   try {
     const { id } = req.params;
 
-    const result = await pool.query(
-      "SELECT * FROM projects WHERE id = $1",
-      [id]
-    );
+    const result = await pool.query("SELECT * FROM projects WHERE id = $1", [
+      id,
+    ]);
 
     if (result.rows.length === 0) {
       return res.status(404).json({ error: "Nie znaleziono projektu" });
@@ -300,7 +295,6 @@ app.get("/projects/:id", async (req, res) => {
     res.status(500).json({ error: "Błąd serwera" });
   }
 });
-
 
 app.get("/projects/:id/tasks", async (req, res) => {
   try {
@@ -315,7 +309,8 @@ app.get("/projects/:id/tasks", async (req, res) => {
       return res.status(404).json({ error: "Nie znaleziono projektu" });
     }
 
-    const result = await pool.query(`
+    const result = await pool.query(
+      `
       SELECT
         tasks.id,
         tasks.title,
@@ -343,7 +338,9 @@ app.get("/projects/:id/tasks", async (req, res) => {
       WHERE tasks.project_id = $1
       GROUP BY tasks.id, users.name, projects.name
       ORDER BY tasks.id ASC
-    `, [id]);
+    `,
+      [id]
+    );
 
     res.json(result.rows);
   } catch (error) {
@@ -361,7 +358,7 @@ app.post("/tasks", async (req, res) => {
       due_date,
       assigned_user_id,
       project_id,
-      estimated_hours
+      estimated_hours,
     } = req.body;
 
     if (!title) {
@@ -387,7 +384,7 @@ app.post("/tasks", async (req, res) => {
         due_date || null,
         assigned_user_id || null,
         project_id || null,
-        estimated_hours || 0
+        estimated_hours || 0,
       ]
     );
 
@@ -409,14 +406,12 @@ app.put("/tasks/:id", async (req, res) => {
       assigned_user_id,
       project_id,
       estimated_hours,
-      logged_hours
+      logged_hours,
     } = req.body;
 
     if (!title) {
       return res.status(400).json({ error: "Pole title jest wymagane" });
     }
-
-
 
     const result = await pool.query(
       `UPDATE tasks
@@ -439,7 +434,7 @@ app.put("/tasks/:id", async (req, res) => {
         project_id || null,
         id,
         estimated_hours !== undefined ? estimated_hours : null,
-        logged_hours !== undefined ? logged_hours : null
+        logged_hours !== undefined ? logged_hours : null,
       ]
     );
 
@@ -471,7 +466,7 @@ app.delete("/tasks/:id", async (req, res) => {
 
     res.json({
       message: "Zadanie zostało usunięte",
-      deletedTask: result.rows[0]
+      deletedTask: result.rows[0],
     });
   } catch (error) {
     console.error("Błąd podczas usuwania zadania:", error.message);
@@ -479,23 +474,23 @@ app.delete("/tasks/:id", async (req, res) => {
   }
 });
 
-app.delete('/projects/:id', async (req, res) => {
+app.delete("/projects/:id", async (req, res) => {
   try {
     const { id } = req.params;
 
     const result = await pool.query(
-      'DELETE FROM projects WHERE id = $1 RETURNING *',
+      "DELETE FROM projects WHERE id = $1 RETURNING *",
       [id]
     );
 
     if (result.rowCount === 0) {
-      return res.status(404).json({ error: 'Nie znaleziono listy.' });
+      return res.status(404).json({ error: "Nie znaleziono listy." });
     }
 
-    res.json({ message: 'Lista została usunięta.', deleted: result.rows[0] });
+    res.json({ message: "Lista została usunięta.", deleted: result.rows[0] });
   } catch (error) {
-    console.error('Błąd podczas usuwania projektu:', error);
-    res.status(500).json({ error: 'Nie udało się usunąć listy.' });
+    console.error("Błąd podczas usuwania projektu:", error);
+    res.status(500).json({ error: "Nie udało się usunąć listy." });
   }
 });
 
@@ -503,7 +498,7 @@ app.get("/tasks/:id/time-logs", async (req, res) => {
   try {
     const { id } = req.params;
     const result = await pool.query(
-      "SELECT * FROM task_time_logs WHERE task_id = $1 ORDER BY created_at DESC",
+      "SELECT * FROM time_logs WHERE task_id = $1 ORDER BY created_at DESC",
       [id]
     );
     res.json(result.rows);
@@ -517,18 +512,20 @@ app.post("/tasks/:id/time-logs", async (req, res) => {
   try {
     const { id } = req.params;
     const { hours, comment } = req.body;
-    
+
     if (!hours || isNaN(hours)) {
-      return res.status(400).json({ error: "Pole hours jest wymagane i musi być liczbą" });
+      return res
+        .status(400)
+        .json({ error: "Pole hours jest wymagane i musi być liczbą" });
     }
 
     const result = await pool.query(
-      `INSERT INTO task_time_logs (task_id, hours, comment)
+      `INSERT INTO time_logs (task_id, hours, comment)
        VALUES ($1, $2, $3)
        RETURNING *`,
       [id, hours, comment || ""]
     );
-    
+
     await pool.query(
       `UPDATE tasks SET logged_hours = COALESCE(logged_hours, 0) + $1 WHERE id = $2`,
       [hours, id]
@@ -544,16 +541,18 @@ app.post("/tasks/:id/time-logs", async (req, res) => {
 app.delete("/time-logs/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    
-    const logCheck = await pool.query("SELECT * FROM task_time_logs WHERE id = $1", [id]);
+
+    const logCheck = await pool.query("SELECT * FROM time_logs WHERE id = $1", [
+      id,
+    ]);
     if (logCheck.rows.length === 0) {
       return res.status(404).json({ error: "Nie znaleziono wpisu" });
     }
-    
+
     const log = logCheck.rows[0];
-    
+
     const result = await pool.query(
-      `DELETE FROM task_time_logs
+      `DELETE FROM time_logs
        WHERE id = $1
        RETURNING *`,
       [id]
@@ -566,7 +565,7 @@ app.delete("/time-logs/:id", async (req, res) => {
 
     res.json({
       message: "Wpis został usunięty",
-      deletedLog: result.rows[0]
+      deletedLog: result.rows[0],
     });
   } catch (error) {
     console.error("Błąd podczas usuwania logu czasu:", error.message);
@@ -574,95 +573,97 @@ app.delete("/time-logs/:id", async (req, res) => {
   }
 });
 
-
-app.get('/labels', async (req, res) => {
+app.get("/labels", async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM labels ORDER BY id ASC');
+    const result = await pool.query("SELECT * FROM labels ORDER BY id ASC");
     res.json(result.rows);
   } catch (error) {
-    console.error('Błąd pobierania etykiet:', error.message);
-    res.status(500).json({ error: 'Błąd serwera' });
+    console.error("Błąd pobierania etykiet:", error.message);
+    res.status(500).json({ error: "Błąd serwera" });
   }
 });
 
-app.post('/labels', async (req, res) => {
+app.post("/labels", async (req, res) => {
   try {
     const { name, color, icon } = req.body;
     if (!name || !String(name).trim()) {
-      return res.status(400).json({ error: 'Nazwa etykiety jest wymagana' });
+      return res.status(400).json({ error: "Nazwa etykiety jest wymagana" });
     }
     const result = await pool.query(
-      'INSERT INTO labels (name, color, icon) VALUES ($1, $2, $3) RETURNING *',
-      [String(name).trim(), color || 'blue', icon || 'tag']
+      "INSERT INTO labels (name, color, icon) VALUES ($1, $2, $3) RETURNING *",
+      [String(name).trim(), color || "blue", icon || "tag"]
     );
     res.status(201).json(result.rows[0]);
   } catch (error) {
-    console.error('Błąd dodawania etykiety:', error.message);
-    res.status(500).json({ error: 'Błąd serwera' });
+    console.error("Błąd dodawania etykiety:", error.message);
+    res.status(500).json({ error: "Błąd serwera" });
   }
 });
 
-app.put('/labels/:id', async (req, res) => {
+app.put("/labels/:id", async (req, res) => {
   try {
     const { id } = req.params;
     const { name, color, icon } = req.body;
     if (!name || !String(name).trim()) {
-      return res.status(400).json({ error: 'Nazwa etykiety jest wymagana' });
+      return res.status(400).json({ error: "Nazwa etykiety jest wymagana" });
     }
     const result = await pool.query(
-      'UPDATE labels SET name = $1, color = $2, icon = $3 WHERE id = $4 RETURNING *',
-      [String(name).trim(), color || 'blue', icon || 'tag', id]
+      "UPDATE labels SET name = $1, color = $2, icon = $3 WHERE id = $4 RETURNING *",
+      [String(name).trim(), color || "blue", icon || "tag", id]
     );
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Nie znaleziono etykiety' });
+      return res.status(404).json({ error: "Nie znaleziono etykiety" });
     }
     res.json(result.rows[0]);
   } catch (error) {
-    console.error('Błąd edycji etykiety:', error.message);
-    res.status(500).json({ error: 'Błąd serwera' });
+    console.error("Błąd edycji etykiety:", error.message);
+    res.status(500).json({ error: "Błąd serwera" });
   }
 });
 
-app.delete('/labels/:id', async (req, res) => {
+app.delete("/labels/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    const result = await pool.query('DELETE FROM labels WHERE id = $1 RETURNING *', [id]);
+    const result = await pool.query(
+      "DELETE FROM labels WHERE id = $1 RETURNING *",
+      [id]
+    );
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Nie znaleziono etykiety' });
+      return res.status(404).json({ error: "Nie znaleziono etykiety" });
     }
-    res.json({ message: 'Etykieta została usunięta', deleted: result.rows[0] });
+    res.json({ message: "Etykieta została usunięta", deleted: result.rows[0] });
   } catch (error) {
-    console.error('Błąd usuwania etykiety:', error.message);
-    res.status(500).json({ error: 'Błąd serwera' });
+    console.error("Błąd usuwania etykiety:", error.message);
+    res.status(500).json({ error: "Błąd serwera" });
   }
 });
 
-app.post('/tasks/:id/labels', async (req, res) => {
+app.post("/tasks/:id/labels", async (req, res) => {
   try {
     const { id } = req.params;
     const { label_id } = req.body;
     await pool.query(
-      'INSERT INTO task_labels (task_id, label_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+      "INSERT INTO task_labels (task_id, label_id) VALUES ($1, $2) ON CONFLICT DO NOTHING",
       [id, label_id]
     );
     res.status(201).json({ task_id: id, label_id });
   } catch (error) {
-    console.error('Błąd przypisania etykiety:', error.message);
-    res.status(500).json({ error: 'Błąd serwera' });
+    console.error("Błąd przypisania etykiety:", error.message);
+    res.status(500).json({ error: "Błąd serwera" });
   }
 });
 
-app.delete('/tasks/:id/labels/:labelId', async (req, res) => {
+app.delete("/tasks/:id/labels/:labelId", async (req, res) => {
   try {
     const { id, labelId } = req.params;
     await pool.query(
-      'DELETE FROM task_labels WHERE task_id = $1 AND label_id = $2',
+      "DELETE FROM task_labels WHERE task_id = $1 AND label_id = $2",
       [id, labelId]
     );
-    res.json({ message: 'Etykieta odpięta' });
+    res.json({ message: "Etykieta odpięta" });
   } catch (error) {
-    console.error('Błąd odpinania etykiety:', error.message);
-    res.status(500).json({ error: 'Błąd serwera' });
+    console.error("Błąd odpinania etykiety:", error.message);
+    res.status(500).json({ error: "Błąd serwera" });
   }
 });
 
