@@ -159,6 +159,21 @@ CREATE DATABASE taskmanager;
 Import schema and data:
 psql -U postgres -d taskmanager -f database/init.sql
 
+## Database migration
+
+Run SQL migration:
+
+```sql
+database/migrations/task-enhancements.sql
+```
+
+This migration adds:
+- labels
+- task_labels
+- time_logs
+- estimated_hours
+- logged_hours
+
 ## Run project
 ```text
 npm run dev

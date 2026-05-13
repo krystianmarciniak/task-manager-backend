@@ -69,7 +69,9 @@ CREATE TABLE public.tasks (
     due_date date,
     created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
     assigned_user_id integer,
-    project_id integer
+    project_id integer,
+    estimated_hours numeric(5,2) DEFAULT 0,
+    logged_hours numeric(5,2) DEFAULT 0
 );
 
 
@@ -110,6 +112,32 @@ CREATE TABLE public.users (
 
 
 ALTER TABLE public.users OWNER TO postgres;
+
+--
+-- Name: task_time_logs; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.task_time_logs (
+    id integer NOT NULL,
+    task_id integer NOT NULL,
+    hours numeric(5,2) NOT NULL,
+    comment text,
+    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP
+);
+
+ALTER TABLE public.task_time_logs OWNER TO postgres;
+
+CREATE SEQUENCE public.task_time_logs_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+ALTER SEQUENCE public.task_time_logs_id_seq OWNER TO postgres;
+ALTER SEQUENCE public.task_time_logs_id_seq OWNED BY public.task_time_logs.id;
+ALTER TABLE ONLY public.task_time_logs ALTER COLUMN id SET DEFAULT nextval('public.task_time_logs_id_seq'::regclass);
 
 --
 -- Name: users_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
@@ -168,12 +196,12 @@ INSERT INTO public.projects (id, name, description, created_at) VALUES
 -- Data for Name: tasks; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
-INSERT INTO public.tasks (id, title, description, status, due_date, created_at, assigned_user_id, project_id) VALUES
-(1, 'Pierwsze zadanie', 'Opis pierwszego zadania', 'todo', '2026-04-20', '2026-04-14 19:17:32.50588', 1, 1),
-(2, 'Drugie zadanie', 'Opis drugiego zadania', 'in_progress', '2026-04-22', '2026-04-14 19:17:32.50588', 2, 2),
-(3, 'Trzecie zadanie', 'Opis trzeciego zadania', 'done', '2026-04-25', '2026-04-14 19:17:32.50588', 3, 3),
-(4, 'Nowe zadanie z API - edycja', 'To zadanie zostało zmienione przez endpoint PUT', 'in_progress', '2026-05-05', '2026-04-14 20:02:59.315361', 1, 1),
-(6, 'Nowe zadanie relacyjne - edycja', 'Po zmianie użytkownika i projektu', 'in_progress', '2026-05-20', '2026-04-15 04:20:29.953132', 3, 2);
+INSERT INTO public.tasks (id, title, description, status, due_date, created_at, assigned_user_id, project_id, estimated_hours, logged_hours) VALUES
+(1, 'Pierwsze zadanie', 'Opis pierwszego zadania', 'todo', '2026-04-20', '2026-04-14 19:17:32.50588', 1, 1, 5, 2.5),
+(2, 'Drugie zadanie', 'Opis drugiego zadania', 'in_progress', '2026-04-22', '2026-04-14 19:17:32.50588', 2, 2, 10, 8),
+(3, 'Trzecie zadanie', 'Opis trzeciego zadania', 'done', '2026-04-25', '2026-04-14 19:17:32.50588', 3, 3, 3, 3),
+(4, 'Nowe zadanie z API - edycja', 'To zadanie zostało zmienione przez endpoint PUT', 'in_progress', '2026-05-05', '2026-04-14 20:02:59.315361', 1, 1, 0, 0),
+(6, 'Nowe zadanie relacyjne - edycja', 'Po zmianie użytkownika i projektu', 'in_progress', '2026-05-20', '2026-04-15 04:20:29.953132', 3, 2, 8, 0);
 
 
 --
@@ -253,6 +281,39 @@ ALTER TABLE ONLY public.tasks
 
 ALTER TABLE ONLY public.tasks
     ADD CONSTRAINT fk_tasks_user FOREIGN KEY (assigned_user_id) REFERENCES public.users(id) ON DELETE SET NULL;
+
+ALTER TABLE ONLY public.task_time_logs
+    ADD CONSTRAINT task_time_logs_pkey PRIMARY KEY (id);
+
+ALTER TABLE ONLY public.task_time_logs
+    ADD CONSTRAINT fk_time_logs_task FOREIGN KEY (task_id) REFERENCES public.tasks(id) ON DELETE CASCADE;
+
+CREATE TABLE public.labels (
+    id integer NOT NULL,
+    name character varying(50) NOT NULL,
+    color character varying(30) DEFAULT 'blue'::character varying NOT NULL,
+    icon character varying(50) DEFAULT 'tag'::character varying,
+    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE SEQUENCE public.labels_id_seq AS integer START WITH 1 INCREMENT BY 1 NO MINVALUE NO MAXVALUE CACHE 1;
+ALTER SEQUENCE public.labels_id_seq OWNED BY public.labels.id;
+ALTER TABLE ONLY public.labels ALTER COLUMN id SET DEFAULT nextval('public.labels_id_seq'::regclass);
+
+CREATE TABLE public.task_labels (
+    task_id integer NOT NULL,
+    label_id integer NOT NULL
+);
+
+ALTER TABLE ONLY public.labels ADD CONSTRAINT labels_pkey PRIMARY KEY (id);
+ALTER TABLE ONLY public.task_labels ADD CONSTRAINT task_labels_pkey PRIMARY KEY (task_id, label_id);
+ALTER TABLE ONLY public.task_labels ADD CONSTRAINT fk_task_labels_task FOREIGN KEY (task_id) REFERENCES public.tasks(id) ON DELETE CASCADE;
+ALTER TABLE ONLY public.task_labels ADD CONSTRAINT fk_task_labels_label FOREIGN KEY (label_id) REFERENCES public.labels(id) ON DELETE CASCADE;
+
+INSERT INTO public.labels (name, color, icon) VALUES
+('Bug', 'red', 'bug'),
+('Feature', 'blue', 'star'),
+('Pilne', 'orange', 'flame');
 
 
 --
