@@ -144,6 +144,39 @@ const options = {
             email: { type: "string", example: "jan@example.com" },
           },
         },
+        CreateUserInput: {
+          type: "object",
+          required: ["name", "email"],
+          properties: {
+            name: {
+              type: "string",
+              maxLength: 80,
+              example: "Jan Kowalski",
+            },
+            email: {
+              type: "string",
+              maxLength: 120,
+              example: "jan@example.com",
+            },
+          },
+        },
+        CreateProjectInput: {
+          type: "object",
+          required: ["name"],
+          properties: {
+            name: {
+              type: "string",
+              maxLength: 80,
+              example: "Projekt zaliczeniowy",
+            },
+            description: {
+              type: "string",
+              maxLength: 300,
+              example: "Lista zadań do projektu zespołowego",
+            },
+          },
+        },
+
         Project: {
           type: "object",
           properties: {
@@ -464,6 +497,52 @@ const options = {
             },
           },
         },
+        post: {
+          tags: ["Users"],
+          summary: "Tworzy nowego użytkownika",
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/CreateUserInput" },
+              },
+            },
+          },
+          responses: {
+            201: {
+              description: "Użytkownik został utworzony",
+              content: {
+                "application/json": {
+                  schema: { $ref: "#/components/schemas/User" },
+                },
+              },
+            },
+            400: {
+              description: "Nieprawidłowe dane użytkownika",
+              content: {
+                "application/json": {
+                  schema: { $ref: "#/components/schemas/ErrorResponse" },
+                },
+              },
+            },
+            409: {
+              description: "Użytkownik o tym adresie e-mail już istnieje",
+              content: {
+                "application/json": {
+                  schema: { $ref: "#/components/schemas/ErrorResponse" },
+                },
+              },
+            },
+            500: {
+              description: "Błąd serwera",
+              content: {
+                "application/json": {
+                  schema: { $ref: "#/components/schemas/ErrorResponse" },
+                },
+              },
+            },
+          },
+        },
       },
       "/users/{id}": {
         get: {
@@ -492,6 +571,103 @@ const options = {
             },
             500: {
               description: "Błąd serwera",
+            },
+          },
+        },
+        put: {
+          tags: ["Users"],
+          summary: "Aktualizuje dane użytkownika",
+          parameters: [
+            {
+              name: "id",
+              in: "path",
+              required: true,
+              schema: { type: "integer" },
+              description: "ID użytkownika",
+            },
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/CreateUserInput" },
+              },
+            },
+          },
+          responses: {
+            200: {
+              description: "Użytkownik został zaktualizowany",
+              content: {
+                "application/json": {
+                  schema: { $ref: "#/components/schemas/User" },
+                },
+              },
+            },
+            400: {
+              description: "Nieprawidłowe dane użytkownika",
+              content: {
+                "application/json": {
+                  schema: { $ref: "#/components/schemas/ErrorResponse" },
+                },
+              },
+            },
+            404: {
+              description: "Nie znaleziono użytkownika",
+              content: {
+                "application/json": {
+                  schema: { $ref: "#/components/schemas/ErrorResponse" },
+                },
+              },
+            },
+            409: {
+              description: "Konflikt danych",
+              content: {
+                "application/json": {
+                  schema: { $ref: "#/components/schemas/ErrorResponse" },
+                },
+              },
+            },
+            500: {
+              description: "Błąd serwera",
+              content: {
+                "application/json": {
+                  schema: { $ref: "#/components/schemas/ErrorResponse" },
+                },
+              },
+            },
+          },
+        },
+        delete: {
+          tags: ["Users"],
+          summary: "Usuwa użytkownika",
+          parameters: [
+            {
+              name: "id",
+              in: "path",
+              required: true,
+              schema: { type: "integer" },
+              description: "ID użytkownika",
+            },
+          ],
+          responses: {
+            200: {
+              description: "Użytkownik został usunięty",
+            },
+            404: {
+              description: "Nie znaleziono użytkownika",
+              content: {
+                "application/json": {
+                  schema: { $ref: "#/components/schemas/ErrorResponse" },
+                },
+              },
+            },
+            500: {
+              description: "Błąd serwera",
+              content: {
+                "application/json": {
+                  schema: { $ref: "#/components/schemas/ErrorResponse" },
+                },
+              },
             },
           },
         },
@@ -551,6 +727,44 @@ const options = {
             },
           },
         },
+        post: {
+          tags: ["Projects"],
+          summary: "Tworzy nowy projekt / listę zadań",
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/CreateProjectInput" },
+              },
+            },
+          },
+          responses: {
+            201: {
+              description: "Projekt został utworzony",
+              content: {
+                "application/json": {
+                  schema: { $ref: "#/components/schemas/Project" },
+                },
+              },
+            },
+            400: {
+              description: "Nieprawidłowe dane projektu",
+              content: {
+                "application/json": {
+                  schema: { $ref: "#/components/schemas/ErrorResponse" },
+                },
+              },
+            },
+            500: {
+              description: "Błąd serwera",
+              content: {
+                "application/json": {
+                  schema: { $ref: "#/components/schemas/ErrorResponse" },
+                },
+              },
+            },
+          },
+        },
       },
       "/projects/{id}": {
         get: {
@@ -579,6 +793,48 @@ const options = {
             },
             500: {
               description: "Błąd serwera",
+            },
+          },
+        },
+        delete: {
+          tags: ["Projects"],
+          summary: "Usuwa projekt / listę zadań razem z powiązanymi zadaniami",
+          parameters: [
+            {
+              name: "id",
+              in: "path",
+              required: true,
+              schema: { type: "integer" },
+              description: "ID projektu",
+            },
+          ],
+          responses: {
+            200: {
+              description: "Projekt i powiązane zadania zostały usunięte",
+            },
+            403: {
+              description: "Nie można usunąć bazowej listy projektu",
+              content: {
+                "application/json": {
+                  schema: { $ref: "#/components/schemas/ErrorResponse" },
+                },
+              },
+            },
+            404: {
+              description: "Nie znaleziono projektu",
+              content: {
+                "application/json": {
+                  schema: { $ref: "#/components/schemas/ErrorResponse" },
+                },
+              },
+            },
+            500: {
+              description: "Błąd serwera",
+              content: {
+                "application/json": {
+                  schema: { $ref: "#/components/schemas/ErrorResponse" },
+                },
+              },
             },
           },
         },

@@ -32,6 +32,65 @@ Swagger UI available at:
 
 http://localhost:3000/api/docs
 
+## Swagger API Documentation
+
+Interactive API documentation is available after starting the server:
+
+```text
+http://localhost:3000/api/docs
+```
+
+Swagger UI allows testing all endpoints directly in the browser.
+
+Documented endpoints include:
+
+- Tasks
+  - GET /tasks
+  - POST /tasks
+  - GET /tasks/{id}
+  - PUT /tasks/{id}
+  - DELETE /tasks/{id}
+
+- Users
+  - GET /users
+  - POST /users
+  - GET /users/{id}
+  - PUT /users/{id}
+  - DELETE /users/{id}
+  - GET /users/{id}/tasks
+
+- Projects
+  - GET /projects
+  - POST /projects
+  - GET /projects/{id}
+  - DELETE /projects/{id}
+  - GET /projects/{id}/tasks
+
+---
+
+## API Validation
+
+The backend includes validation mechanisms for secure and correct API usage.
+
+Implemented validations:
+
+- required fields validation
+- maximum title length validation
+- email format validation
+- date format validation
+- task status validation
+- relational validation for:
+  - assigned_user_id
+  - project_id
+
+The API returns proper HTTP status codes:
+
+- 200 OK
+- 201 Created
+- 400 Bad Request
+- 404 Not Found
+- 500 Internal Server Error
+
 ### Data relationships:
 - One user can have many tasks
 - One project can contain many tasks
@@ -130,6 +189,39 @@ Example endpoints:
 - GET /projects/:id
 - GET /users
 - GET /users/:id
+
+## Validation & Security
+
+The backend includes server-side validation to improve API reliability and data consistency.
+
+Implemented validations:
+
+- Required task title validation
+- Maximum task title length (100 characters)
+- Allowed task statuses only:
+  - todo
+  - in_progress
+  - done
+- E-mail format validation
+- Date format validation
+- Validation of existing relations:
+  - assigned_user_id
+  - project_id
+
+Example error response:
+
+```json
+{
+  "error": "Nieprawidłowy format daty."
+}
+```
+
+The API returns proper HTTP status codes:
+- 200 OK
+- 201 Created
+- 400 Bad Request
+- 404 Not Found
+- 500 Internal Server Error
 
 ## Notes
 .env file is not included in repository for security reasons
