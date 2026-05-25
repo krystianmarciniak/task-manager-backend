@@ -1,60 +1,61 @@
+// =====================================================
+// IMPORTY I KONFIGURACJA PODSTAWOWA
+// Express, CORS, Swagger, dotenv oraz połączenie z PostgreSQL.
+// =====================================================
 const express = require("express");
 const cors = require("cors");
 const swaggerUi = require("swagger-ui-express");
 const swaggerSpec = require("./swagger");
 require("dotenv").config();
+const usersRoutes = require("./routes/users.routes");
+const projectsRoutes = require("./routes/projects.routes");
 
 const pool = require("./db");
-
 const app = express();
 
 app.use(cors());
 app.use(express.json());
-
 app.use("/api/docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+app.use("/users", usersRoutes);
+app.use("/projects", projectsRoutes);
 
 app.get("/", (req, res) => {
   res.send("API działa poprawnie");
 });
-
-function isValidTaskStatus(status) {
+// =====================================================
+// FUNKCJE POMOCNICZE Walidacja statusu zadania, daty oraz sprawdzanie istnienia użytkownika/projektu.
+// =====================================================
+function isValidTaskStatus(status) { // => Walidacja statusu zadania
   return ["todo", "in_progress", "done"].includes(status);
 }
-
-function normalizeDueDate(dueDate) {
+function normalizeDueDate(dueDate) { //=> Walidacja daty
   if (!dueDate) return null;
-
   const date = new Date(dueDate);
-
   if (Number.isNaN(date.getTime())) {
     return null;
   }
   return dueDate;
 }
 
-async function userExists(userId) {
+async function userExists(userId) { //=> Sprawdzanie istnienia użytkownika.
   if (!userId) return true;
-
   const result = await pool.query(
-    "SELECT id FROM users WHERE id = $1",
-    [userId]
+    "SELECT id FROM users WHERE id = $1", [userId]
   );
-
   return result.rows.length > 0;
 }
 
-async function projectExists(projectId) {
+async function projectExists(projectId) { //=> Sprawdzanie istnienia projektu.
   if (!projectId) return true;
-
   const result = await pool.query(
     "SELECT id FROM projects WHERE id = $1",
     [projectId]
-  );
-
-  return result.rows.length > 0;
+  ); return result.rows.length > 0;
 }
-
-app.get("/tasks", async (req, res) => {
+// =====================================================
+// ENDPOINTY ZADAŃ - TASKS Obsługa pobierania, dodawania, edycji i usuwania zadań.
+// =====================================================
+app.get("/tasks", async (req, res) => { // pobieranie wszystkich zadań
   try {
     const result = await pool.query(`
       SELECT
@@ -84,367 +85,37 @@ app.get("/tasks", async (req, res) => {
       GROUP BY tasks.id, users.name, projects.name
       ORDER BY tasks.id ASC
     `);
-
     res.json(result.rows);
   } catch (error) {
-    console.error("Błąd podczas pobierania zadań:", error.message);
+    console.error("Błąd podczas pobierania zadań:", error);
     res.status(500).json({ error: "Błąd serwera" });
   }
 });
 
-app.get("/tasks/:id", async (req, res) => {
+app.get("/tasks/:id", async (req, res) => { // pobranie jednego konkretnego zadania
   try {
     const { id } = req.params;
-
     const result = await pool.query("SELECT * FROM tasks WHERE id = $1", [id]);
-
-    if (result.rows.length === 0) {
+    if (result.rows.length === 0) {  // Obsługa sytuacji, gdy zadanie nie istnieje
       return res.status(404).json({ error: "Nie znaleziono zadania" });
     }
-
-    res.json(result.rows[0]);
+    res.json(result.rows[0]); // Zwrócenie znalezionego zadania
   } catch (error) {
     console.error("Błąd podczas pobierania zadania:", error.message);
     res.status(500).json({ error: "Błąd serwera" });
   }
 });
-
-app.get("/users", async (req, res) => {
-  try {
-    const result = await pool.query("SELECT * FROM users ORDER BY id ASC");
-    res.json(result.rows);
-  } catch (error) {
-    console.error("Błąd podczas pobierania użytkowników:", error.message);
-    res.status(500).json({ error: "Błąd serwera" });
-  }
-});
-
-// POST /users
-app.post("/users", async (req, res) => {
-  try {
-    const { name, email } = req.body;
-
-    if (!name || !String(name).trim()) {
-      return res.status(400).json({ error: "Pole name jest wymagane" });
-    }
-    if (!email || !String(email).trim()) {
-      return res.status(400).json({ error: "Pole email jest wymagane" });
-    }
-
-    const normalizedEmail = String(email).trim().toLowerCase();
-
-    if (!normalizedEmail.includes("@")) {
-      return res.status(400).json({
-        error: "Adres e-mail musi zawierać znak @."
-      });
-    }
-
-    if (String(name).trim().length > 80) {
-      return res.status(400).json({
-        error: "Nazwa użytkownika może mieć maksymalnie 80 znaków."
-      });
-    }
-
-    if (normalizedEmail.length > 120) {
-      return res.status(400).json({
-        error: "Adres e-mail może mieć maksymalnie 120 znaków."
-      });
-    }
-
-    const result = await pool.query(
-      `INSERT INTO users (name, email)
-       VALUES ($1, $2)
-       RETURNING *`,
-      [String(name).trim(), normalizedEmail]
-    );
-
-    res.status(201).json(result.rows[0]);
-  } catch (error) {
-    if (error.code === "23505") {
-      return res
-        .status(409)
-        .json({ error: "Użytkownik o tym adresie e-mail już istnieje" });
-    }
-    console.error("Błąd podczas dodawania użytkownika:", error.message);
-    res.status(500).json({ error: "Błąd serwera" });
-  }
-});
-
-app.get("/users/:id", async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const result = await pool.query("SELECT * FROM users WHERE id = $1", [id]);
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: "Nie znaleziono użytkownika" });
-    }
-
-    res.json(result.rows[0]);
-  } catch (error) {
-    console.error("Błąd podczas pobierania użytkownika:", error.message);
-    res.status(500).json({ error: "Błąd serwera" });
-  }
-});
-
-// PUT /users/:id
-app.put("/users/:id", async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { name, email } = req.body;
-
-    if (!name || !String(name).trim()) {
-      return res.status(400).json({ error: "Pole name jest wymagane" });
-    }
-    if (!email || !String(email).trim()) {
-      return res.status(400).json({ error: "Pole email jest wymagane" });
-    }
-
-    const normalizedEmail = String(email).trim().toLowerCase();
-
-    if (!normalizedEmail.includes("@")) {
-      return res.status(400).json({
-        error: "Adres e-mail musi zawierać znak @."
-      });
-    }
-
-    if (String(name).trim().length > 80) {
-      return res.status(400).json({
-        error: "Nazwa użytkownika może mieć maksymalnie 80 znaków."
-      });
-    }
-
-    if (normalizedEmail.length > 120) {
-      return res.status(400).json({
-        error: "Adres e-mail może mieć maksymalnie 120 znaków."
-      });
-    }
-
-    const result = await pool.query(
-      `UPDATE users
-       SET name = $1, email = $2
-       WHERE id = $3
-       RETURNING *`,
-      [String(name).trim(), normalizedEmail, id]
-    );
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: "Nie znaleziono użytkownika" });
-    }
-
-    res.json(result.rows[0]);
-  } catch (error) {
-    if (error.code === "23505") {
-      return res
-        .status(409)
-        .json({ error: "Użytkownik o tym adresie e-mail już istnieje" });
-    }
-    console.error("Błąd podczas edycji użytkownika:", error.message);
-    res.status(500).json({ error: "Błąd serwera" });
-  }
-});
-
-app.delete("/users/:id", async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const result = await pool.query(
-      `DELETE FROM users
-       WHERE id = $1
-       RETURNING *`,
-      [id]
-    );
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: "Nie znaleziono użytkownika" });
-    }
-
-    res.json({
-      message: "Użytkownik został usunięty",
-      deletedUser: result.rows[0],
-    });
-  } catch (error) {
-    console.error("Błąd podczas usuwania użytkownika:", error.message);
-    res.status(500).json({ error: "Błąd serwera" });
-  }
-});
-
-app.get("/users/:id/tasks", async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const userCheck = await pool.query("SELECT * FROM users WHERE id = $1", [
-      id,
-    ]);
-
-    if (userCheck.rows.length === 0) {
-      return res.status(404).json({ error: "Nie znaleziono użytkownika" });
-    }
-
-    const result = await pool.query(
-      `
-      SELECT
-        tasks.id,
-        tasks.title,
-        tasks.description,
-        tasks.status,
-        tasks.due_date,
-        tasks.created_at,
-        tasks.assigned_user_id,
-        tasks.project_id,
-        tasks.estimated_hours,
-        tasks.logged_hours,
-        users.name AS assigned_user_name,
-        projects.name AS project_name,
-        COALESCE(
-          JSON_AGG(
-            JSON_BUILD_OBJECT('id', l.id, 'name', l.name, 'color', l.color, 'icon', l.icon)
-          ) FILTER (WHERE l.id IS NOT NULL),
-          '[]'
-        ) AS labels
-      FROM tasks
-      LEFT JOIN users ON tasks.assigned_user_id = users.id
-      LEFT JOIN projects ON tasks.project_id = projects.id
-      LEFT JOIN task_labels tl ON tasks.id = tl.task_id
-      LEFT JOIN labels l ON tl.label_id = l.id
-      WHERE tasks.assigned_user_id = $1
-      GROUP BY tasks.id, users.name, projects.name
-      ORDER BY tasks.id ASC
-    `,
-      [id]
-    );
-
-    res.json(result.rows);
-  } catch (error) {
-    console.error("Błąd podczas pobierania zadań użytkownika:", error.message);
-    res.status(500).json({ error: "Błąd serwera" });
-  }
-});
-
-app.get("/projects", async (req, res) => {
-  try {
-    const result = await pool.query("SELECT * FROM projects ORDER BY id ASC");
-    res.json(result.rows);
-  } catch (error) {
-    console.error("Błąd podczas pobierania projektów:", error.message);
-    res.status(500).json({ error: "Błąd serwera" });
-  }
-});
-
-// POST /projects
-app.post("/projects", async (req, res) => {
-  try {
-    const { name, description } = req.body;
-
-    if (!name || !String(name).trim()) {
-      return res.status(400).json({ error: "Nazwa listy jest wymagana." });
-    }
-
-    if (String(name).trim().length > 80) {
-      return res.status(400).json({
-        error: "Nazwa listy może mieć maksymalnie 80 znaków."
-        });
-      }
-
-    if (description && String(description).trim().length > 300) {
-      return res.status(400).json({
-        error: "Opis listy może mieć maksymalnie 300 znaków."
-        });
-      }
-
-    const result = await pool.query(
-      `INSERT INTO projects (name, description)
-       VALUES ($1, $2)
-       RETURNING *`,
-      [
-        String(name).trim(),
-        description
-          ? String(description).trim()
-        : "Lista zadań utworzona z poziomu aplikacji"
-      ]
-    );
-
-    res.status(201).json(result.rows[0]);
-  } catch (error) {
-    console.error("Błąd podczas dodawania projektu:", error.message);
-    res.status(500).json({ error: "Nie udało się utworzyć listy." });
-  }
-});
-
-app.get("/projects/:id", async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const result = await pool.query("SELECT * FROM projects WHERE id = $1", [
-      id,
-    ]);
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: "Nie znaleziono projektu" });
-    }
-
-    res.json(result.rows[0]);
-  } catch (error) {
-    console.error("Błąd podczas pobierania projektu:", error.message);
-    res.status(500).json({ error: "Błąd serwera" });
-  }
-});
-
-app.get("/projects/:id/tasks", async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const projectCheck = await pool.query(
-      "SELECT * FROM projects WHERE id = $1",
-      [id]
-    );
-
-    if (projectCheck.rows.length === 0) {
-      return res.status(404).json({ error: "Nie znaleziono projektu" });
-    }
-
-    const result = await pool.query(
-      `
-      SELECT
-        tasks.id,
-        tasks.title,
-        tasks.description,
-        tasks.status,
-        tasks.due_date,
-        tasks.created_at,
-        tasks.assigned_user_id,
-        tasks.project_id,
-        tasks.estimated_hours,
-        tasks.logged_hours,
-        users.name AS assigned_user_name,
-        projects.name AS project_name,
-        COALESCE(
-          JSON_AGG(
-            JSON_BUILD_OBJECT('id', l.id, 'name', l.name, 'color', l.color, 'icon', l.icon)
-          ) FILTER (WHERE l.id IS NOT NULL),
-          '[]'
-        ) AS labels
-      FROM tasks
-      LEFT JOIN users ON tasks.assigned_user_id = users.id
-      LEFT JOIN projects ON tasks.project_id = projects.id
-      LEFT JOIN task_labels tl ON tasks.id = tl.task_id
-      LEFT JOIN labels l ON tl.label_id = l.id
-      WHERE tasks.project_id = $1
-      GROUP BY tasks.id, users.name, projects.name
-      ORDER BY tasks.id ASC
-    `,
-      [id]
-    );
-
-    res.json(result.rows);
-  } catch (error) {
-    console.error("Błąd podczas pobierania zadań projektu:", error.message);
-    res.status(500).json({ error: "Błąd serwera" });
-  }
-});
+// =====================================================
+// ENDPOINTY UŻYTKOWNIKÓW - USERS
+// CRUD użytkowników Create-POST Read-GET Update-PUT Delete-DELETE/PATCH oraz pobieranie zadań przypisanych do użytkownika.
+// =====================================================
+// =====================================================
+// ENDPOINTY PROJEKTÓW / LIST ZADAŃ - PROJECTS
+// Obsługa list zadań oraz pobieranie zadań przypisanych do listy.
+// =====================================================
 
 // POST /tasks
-app.post("/tasks", async (req, res) => {
+app.post("/tasks", async (req, res) => { // Dodawanie zadania , POST w REST API zwykle oznacza: CREATE czyli tworzenie nowego rekordu.
   try {
     const {
       title,
@@ -455,11 +126,97 @@ app.post("/tasks", async (req, res) => {
       project_id,
       estimated_hours,
     } = req.body;
+    if (!title || !String(title).trim()) { // jeśli undefined, null, "", String(title) zamienia wartość na tekst. 
+      // jeśli title:- nie istnieje LUB - zawiera tylko spacje "      "
+      // String(title)-zamienia wartość na tekst. 123→"123" , .trim() usuwa: spacje z początku i końca 
+      return res.status(400).json({ error: "Pole title jest wymagane" });
+    }
+    if (String(title).trim().length > 100) {
+      return res.status(400).json({ error: "Tytuł zadania może mieć maksymalnie 100 znaków." });
+    }
+    if (description && String(description).trim().length > 500) {
+      return res.status(400).json({ error: "Opis zadania może mieć maksymalnie 500 znaków." });
+    }
+    if (due_date) { // jeśli użytkownik podał datę
+      const parsedDate = new Date(due_date);
+      // jeśli new Date("2026-05-25") to: new Date(due_date) tworzy poprawną datę
+      // To zamienia datę na: liczbę milisekund od 1 stycznia 1970 może zwrócić: 1779667200000
+      if (isNaN(parsedDate.getTime())) { // spróbuj zamienić tekst na datę
+        return res.status(400).json({ error: "Nieprawidłowy format daty." }); // jeśli data jest niepoprawna → zwróć błąd
+      }}
+
+    const normalizedStatus = status || "todo"; // użyj status, a jeśli go nie ma → ustaw 'todo'”
+    const normalizedDueDate = normalizeDueDate(due_date); // oczyszczona / poprawiona wersja daty”
+    // jeśli NIE istnieje użytkownik o podanym assigned_user_id
+    if (!(await userExists(assigned_user_id))) { // (assigned_user_id => ID użytkownika przypisanego do zadania
+    // assigned_user_id: NIE przechowuje nazwy użytkownika tylko: ID użytkownika czyli klucz obcy: FOREIGN KEY
+    // Czyli: tasks.assigned_user_id  → wskazuje na users.id
+      return res.status(400).json({ error: "Nie istnieje użytkownik o podanym assigned_user_id." });
+    }
+    if (!(await projectExists(project_id))) {
+      return res.status(400).json({ error: "Nie istnieje lista o podanym project_id." });
+    }
+    if (!isValidTaskStatus(normalizedStatus)) {
+      return res.status(400).json({ error: "Nieprawidłowy status zadania. Dozwolone: todo, in_progress, done."
+      });
+    }
+
+    if (assigned_user_id) { // jeśli assigned_user_id zostało podane
+      const userCheck = await pool.query( // czy użytkownik istnieje w tabeli users
+        "SELECT id FROM users WHERE id = $1", // znajdź użytkownika o konkretnym ID
+        [assigned_user_id] );
+      if (userCheck.rows.length === 0) {
+        return res.status(400).json({ error: "Nie istnieje użytkownik o podanym assigned_user_id."
+        });
+      }}
+
+    const result = await pool.query(
+      `INSERT INTO tasks (
+        title,
+        description,
+        status,
+        due_date,
+        assigned_user_id,
+        project_id,
+        estimated_hours
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      RETURNING *`,
+      [
+        String(title).trim(),
+        description ? String(description).trim() : null,
+        normalizedStatus,
+        normalizedDueDate,
+        assigned_user_id || null,
+        project_id || null,
+        estimated_hours || 0,
+      ]
+    );
+
+    res.status(201).json(result.rows[0]);
+  } catch (error) {
+    console.error("Błąd podczas dodawania zadania:", error.message);
+    res.status(500).json({ error: "Błąd serwera" });
+  }
+});
+
+// PUT /tasks/:id
+app.put("/tasks/:id", async (req, res) => { // edycja jednego konkretnego zadania
+  try {
+    const { id } = req.params;
+    const {
+      title,
+      description,
+      status,
+      due_date,
+      assigned_user_id,
+      project_id,
+      estimated_hours,
+      logged_hours,
+    } = req.body;
 
     if (!title || !String(title).trim()) {
-      return res.status(400).json({
-        error: "Pole title jest wymagane"
-      });
+      return res.status(400).json({ error: "Pole title jest wymagane" });
     }
 
     if (String(title).trim().length > 100) {
@@ -467,7 +224,6 @@ app.post("/tasks", async (req, res) => {
         error: "Tytuł zadania może mieć maksymalnie 100 znaków."
       });
     }
-
     if (description && String(description).trim().length > 500) {
       return res.status(400).json({
         error: "Opis zadania może mieć maksymalnie 500 znaków."
@@ -519,111 +275,6 @@ app.post("/tasks", async (req, res) => {
     }
 
     const result = await pool.query(
-      `INSERT INTO tasks (
-        title,
-        description,
-        status,
-        due_date,
-        assigned_user_id,
-        project_id,
-        estimated_hours
-      )
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
-      RETURNING *`,
-      [
-        String(title).trim(),
-        description ? String(description).trim() : null,
-        normalizedStatus,
-        normalizedDueDate,
-        assigned_user_id || null,
-        project_id || null,
-        estimated_hours || 0,
-      ]
-    );
-
-    res.status(201).json(result.rows[0]);
-  } catch (error) {
-    console.error("Błąd podczas dodawania zadania:", error.message);
-    res.status(500).json({ error: "Błąd serwera" });
-  }
-});
-
-// PUT /tasks/:id
-app.put("/tasks/:id", async (req, res) => {
-  try {
-    const { id } = req.params;
-    const {
-      title,
-      description,
-      status,
-      due_date,
-      assigned_user_id,
-      project_id,
-      estimated_hours,
-      logged_hours,
-    } = req.body;
-
-    if (!title || !String(title).trim()) {
-      return res.status(400).json({ error: "Pole title jest wymagane" });
-    }
-
-    if (String(title).trim().length > 100) {
-      return res.status(400).json({
-        error: "Tytuł zadania może mieć maksymalnie 100 znaków."
-        });
-      }
-
-    if (description && String(description).trim().length > 500) {
-      return res.status(400).json({
-        error: "Opis zadania może mieć maksymalnie 500 znaków."
-        });
-      }
-
-    if (due_date) {
-      const parsedDate = new Date(due_date);
-
-      if (isNaN(parsedDate.getTime())) {
-        return res.status(400).json({
-          error: "Nieprawidłowy format daty."
-        });
-      }
-    }  
-
-    const normalizedStatus = status || "todo";
-    const normalizedDueDate = normalizeDueDate(due_date);
-
-    if (!(await userExists(assigned_user_id))) {
-      return res.status(400).json({
-        error: "Nie istnieje użytkownik o podanym assigned_user_id."
-      });
-    }
-
-    if (!(await projectExists(project_id))) {
-      return res.status(400).json({
-        error: "Nie istnieje lista o podanym project_id."
-      });
-    }
-
-    if (!isValidTaskStatus(normalizedStatus)) {
-      return res.status(400).json({
-        error: "Nieprawidłowy status zadania. Dozwolone: todo, in_progress, done."
-      });
-    }
-
-    if (assigned_user_id) {
-    const userCheck = await pool.query(
-      "SELECT id FROM users WHERE id = $1",
-      [assigned_user_id]
-    );
-
-    if (userCheck.rows.length === 0) {
-        return res.status(400).json({
-          error: "Nie istnieje użytkownik o podanym assigned_user_id."
-        });
-      }
-    }
-
-    const result = await pool.query(
       `UPDATE tasks
        SET title = $1,
            description = $2,
@@ -659,7 +310,7 @@ app.put("/tasks/:id", async (req, res) => {
   }
 });
 
-app.delete("/tasks/:id", async (req, res) => {
+app.delete("/tasks/:id", async (req, res) => { // usuwanie zadania
   try {
     const { id } = req.params;
 
@@ -681,52 +332,6 @@ app.delete("/tasks/:id", async (req, res) => {
   } catch (error) {
     console.error("Błąd podczas usuwania zadania:", error.message);
     res.status(500).json({ error: "Błąd serwera" });
-  }
-});
-
-app.delete("/projects/:id", async (req, res) => {
-  const client = await pool.connect();
-
-  try {
-    const { id } = req.params;
-
-    if (Number(id) <= 3) {
-      return res.status(403).json({
-        error: "Nie można usunąć bazowej listy projektu."
-      });
-    }
-
-    await client.query("BEGIN");
-
-    const projectResult = await client.query(
-      "SELECT * FROM projects WHERE id = $1",
-      [id]
-    );
-
-    if (projectResult.rows.length === 0) {
-      await client.query("ROLLBACK");
-      return res.status(404).json({ error: "Nie znaleziono listy." });
-    }
-
-    await client.query("DELETE FROM tasks WHERE project_id = $1", [id]);
-
-    const deleteResult = await client.query(
-      "DELETE FROM projects WHERE id = $1 RETURNING *",
-      [id]
-    );
-
-    await client.query("COMMIT");
-
-    res.json({
-      message: "Lista i powiązane zadania zostały usunięte.",
-      deleted: deleteResult.rows[0]
-    });
-  } catch (error) {
-    await client.query("ROLLBACK");
-    console.error("Błąd podczas usuwania projektu:", error.message);
-    res.status(500).json({ error: "Nie udało się usunąć listy." });
-  } finally {
-    client.release();
   }
 });
 
