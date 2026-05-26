@@ -2,6 +2,9 @@ const express = require("express");
 const router = express.Router();
 const pool = require("../db");
 
+// ENDPOINTY UŻYTKOWNIKÓW - USERS
+// CRUD użytkowników Create-POST Read-GET Update-PUT Delete-DELETE/PATCH oraz pobieranie zadań przypisanych do użytkownika.
+
 //GET /users
 router.get("/", async (req, res) => { // Pobranie wszystkich użytkowników
   try {
