@@ -1,8 +1,8 @@
 const express = require("express");
-const router = express.Router();
-const pool = require("../db");
+const router = express.Router();// import Express Router | router odpowiada za obsługę endpointów API
+const pool = require("../db");// pool = connection pool PostgreSQL | zarządzanie połączeniami do bazy danych
 
-// ENDPOINTY UŻYTKOWNIKÓW - USERS
+// 1 ENDPOINTY UŻYTKOWNIKÓW - USERS
 // CRUD użytkowników Create-POST Read-GET Update-PUT Delete-DELETE/PATCH oraz pobieranie zadań przypisanych do użytkownika.
 
 //GET /users
@@ -67,8 +67,7 @@ router.post("/", async (req, res) => { // dodawanie uzytkownika
     if (error.code === "23505") { // 23505 to specjalny kod błędu PostgreSQL, naruszenie unikalności danych nie można dodać: krystian@gmail.com  drugi raz.
       return res
         .status(409)
-        .json({ error: "Użytkownik o tym adresie e-mail już istnieje" });
-    }
+        .json({ error: "Użytkownik o tym adresie e-mail już istnieje" });}
     console.error("Błąd podczas dodawania użytkownika:", error.message);
     res.status(500).json({ error: "Błąd serwera" });
   }
@@ -85,6 +84,7 @@ router.put("/:id", async (req, res) => { // edycja zadania
     if (!email || !String(email).trim()) { // pole name trim() usuwa: spacje z początku tekstu, spacje z końca
       return res.status(400).json({ error: "Pole email jest wymagane" });
     }
+    // normalizacja emaila przed zapisem do bazy, usuwa spacje i ujednolica wielkość liter
     const normalizedEmail = String(email).trim().toLowerCase();
     if (!normalizedEmail.includes("@")) {
       return res.status(400).json({
@@ -112,7 +112,7 @@ router.put("/:id", async (req, res) => { // edycja zadania
     }
     res.json(result.rows[0]); // zwraca wynik dla PUT /users/:id
   } catch (error) {
-    if (error.code === "23505") {
+    if (error.code === "23505") {  // kod PostgreSQL oznaczający naruszenie UNIQUE, np. próba dodania drugiego użytkownika z tym samym emailem
       return res
         .status(409)
         .json({ error: "Użytkownik o tym adresie e-mail już istnieje" });
@@ -128,6 +128,7 @@ router.delete("/:id", async (req, res) => { // usunięcie urzytkownika
     const { id } = req.params;// parametry z adresu URL czyli /users/5 destrukturyzacja obiektu w JavaScript.
     const result = await pool.query(
       `DELETE FROM users WHERE id = $1 RETURNING *`, [id]
+      // PostgreSQL zwraca rekord po INSERT / UPDATE / DELETE, dzięki temu backend może odesłać frontendowi aktualny stan danych
     );
     if (result.rows.length === 0) {
       return res.status(404).json({ error: "Nie znaleziono użytkownika" });
@@ -146,14 +147,17 @@ router.get("/:id/tasks", async (req, res) => { // pobierz wszystkie zadania konk
   try {
     const { id } = req.params;// parametry z adresu URL czyli /users/5 destrukturyzacja obiektu w JavaScript.
     const userCheck = await pool.query("SELECT * FROM users WHERE id = $1", [id]);
+    // najpierw sprawdzamy, czy użytkownik istnieje
     // userCheck.rows tablica rekordów zwróconych z PostgreSQL
     // Jeśli użytkownik istnieje: rows = [{id: 5, name: "Krystian"}] Wtedy: rows.length wynosi:1
-    if (userCheck.rows.length === 0) { // jeśli nie znaleziono użytkownika
+    if (userCheck.rows.length === 0) { // jeśli nie istnieje → 404
+    // jeśli istnieje, ale nie ma zadań → zwrócimy pustą tablicę []
       return res.status(404).json({ error: "Nie znaleziono użytkownika" });
     }
     const result = await pool.query(
       // użytkownik: id = 5 backend: szuka wszystkich tasków: assigned_user_id = 5
       // Jeśli w zapytaniu są też projekty LEFT JOIN projects ... to backend dodatkowo: dołącza informacje o projekcie
+       //COALESCE(..., '[]') AS labels  jeśli zadanie nie ma etykiet, zwróć pustą tablicę [] zamiast wartości null
       `
       SELECT
         tasks.id,
@@ -183,6 +187,7 @@ router.get("/:id/tasks", async (req, res) => { // pobierz wszystkie zadania konk
       GROUP BY tasks.id, users.name, projects.name
       ORDER BY tasks.id ASC
     `,
+   
       [id] // parametry przekazywane do SQL, posiada placeholder $1
       // pool.query("SELECT ... WHERE id = $1", [id]) PostgreSQL widzi: WHERE id = $1 ale jeszcze: nie zna wartości $1 Dopiero: [id] przekazuje: jaką wartość ma dostać $1
       // Czyli: pool.query("SELECT * FROM users WHERE id = $1", [id]); oznacza: „podstaw zmienną id w miejsce $1”
